@@ -1,0 +1,72 @@
+version: '2.1'
+
+volumes:
+    prometheus_data: {}
+    grafana_data: {}
+
+services:
+  prom-am-exec:
+    build: .
+    ports:
+      - 23222:23222
+    restart: unless-stopped
+    depends_on:
+       - prometheus
+    networks:
+      - promnet
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - 9090:9090
+    depends_on:
+      - alertmanager
+    restart: unless-stopped
+    volumes:
+      - ./configs/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    networks:
+      - promnet
+    links:
+      - metricsapp
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./configs/grafana:/etc/grafana/provisioning/datasources
+    networks:
+      - promnet
+
+  alertmanager:
+    image: prom/alertmanager
+    container_name: prometheus_alertmanager
+    restart: unless-stopped
+    ports:
+      - 9093:9093
+    networks:
+      - promnet
+
+  metricsapp:
+    image: philwinder/prometheus-python
+    container_name: metricsapp
+    restart: unless-stopped
+    ports:
+      - 5000:5000
+    networks:
+      - promnet
+
+networks:
+  promnet:
+    driver: bridge
+
